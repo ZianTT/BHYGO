@@ -21,26 +21,32 @@ jobs:
 
   build:
     needs: verify
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
       matrix:
         include:
           - goos: windows
             goarch: amd64
+            runner: ubuntu-latest
             filename: BHYGO-Windows.exe
             client: BHYGO-OSS-Windows
           - goos: linux
             goarch: amd64
+            runner: ubuntu-latest
             filename: BHYGO-Linux
             client: BHYGO-OSS-Linux
           - goos: darwin
             goarch: amd64
-            filename: BHYGO-macOS-Intel
+            runner: macos-latest
+            filename: BHYGO-macOS-Intel.zip
+            executable_filename: BHYGO-macOS-Intel-executable.zip
             client: BHYGO-OSS-Mac(Intel)
           - goos: darwin
             goarch: arm64
-            filename: BHYGO-macOS-Apple-Silicon
+            runner: macos-latest
+            filename: BHYGO-macOS-Apple-Silicon.zip
+            executable_filename: BHYGO-macOS-Apple-Silicon-executable.zip
             client: BHYGO-OSS-Mac
     steps:
       - name: Checkout
@@ -57,15 +63,28 @@ jobs:
           GOARCH: ${{ matrix.goarch }}
           CGO_ENABLED: '0'
           FILENAME: ${{ matrix.filename }}
+          EXECUTABLE_FILENAME: ${{ matrix.executable_filename }}
         run: |
           mkdir -p build
-          short_sha="${GITHUB_SHA:0:7}"
-          go build -trimpath -ldflags="-s -w -X main.commit=${short_sha}" -o "build/${FILENAME}" .
+          if [ "$GOOS" = darwin ]; then
+            bash scripts/package-macos.sh
+            FILENAME="$EXECUTABLE_FILENAME" bash scripts/package-macos-executable.sh
+          else
+            short_sha="$(git rev-parse --short=7 HEAD)"
+            go build -trimpath -ldflags="-s -w -X main.commit=${short_sha}" -o "build/${FILENAME}" .
+          fi
       - name: Upload artifact
         uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.filename }}-${{ github.sha }}
           path: build/${{ matrix.filename }}
+          if-no-files-found: error
+      - name: Upload macOS executable artifact
+        if: matrix.goos == 'darwin'
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ matrix.executable_filename }}-${{ github.sha }}
+          path: build/${{ matrix.executable_filename }}
           if-no-files-found: error
       - name: Upload to BDist
         shell: bash
