@@ -1,0 +1,97 @@
+name: Build BHYGO
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version: '1.27.x'
+          cache-dependency-path: go.sum
+      - run: go vet ./...
+
+  build:
+    needs: verify
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - goos: windows
+            goarch: amd64
+            filename: BHYGO-Windows.exe
+            client: BHYGO-OSS-Windows
+          - goos: linux
+            goarch: amd64
+            filename: BHYGO-Linux
+            client: BHYGO-OSS-Linux
+          - goos: darwin
+            goarch: amd64
+            filename: BHYGO-macOS-Intel
+            client: BHYGO-OSS-Mac(Intel)
+          - goos: darwin
+            goarch: arm64
+            filename: BHYGO-macOS-Apple-Silicon
+            client: BHYGO-OSS-Mac
+    steps:
+      - name: Checkout
+        run: |
+          git clone https://ZianTT:${{ secrets.SBCI_TOKEN }}@git.origami.pub/BHYG/BHYGO
+      - uses: actions/setup-go@v7
+        with:
+          go-version: '1.27.x'
+          cache-dependency-path: go.sum
+      - name: Build
+        shell: bash
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: '0'
+          FILENAME: ${{ matrix.filename }}
+        run: |
+          mkdir -p build
+          short_sha="${GITHUB_SHA:0:7}"
+          go build -trimpath -ldflags="-s -w -X main.commit=${short_sha}" -o "build/${FILENAME}" .
+      - name: Upload artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ matrix.filename }}-${{ github.sha }}
+          path: build/${{ matrix.filename }}
+          if-no-files-found: error
+      - name: Upload to BDist
+        shell: bash
+        env:
+          BDIST_UPLOAD_URL: ${{ vars.BDIST_UPLOAD_URL || 'https://dist.rakuyoudesu.com/ci/upload' }}
+          BDIST_UPLOAD_TOKEN: ${{ secrets.BDIST_UPLOAD_TOKEN }}
+          BDIST_CLIENT: ${{ matrix.client }}
+          BDIST_FILENAME: ${{ matrix.filename }}
+        run: |
+          if [ -z "$BDIST_UPLOAD_TOKEN" ]; then
+            echo '::error::Set the BDIST_UPLOAD_TOKEN repository secret before the first upload.'
+            exit 1
+          fi
+          for attempt in 1 2 3 4 5; do
+            if curl --fail-with-body --show-error --silent --location --http1.1 \
+              --connect-timeout 30 --max-time 600 \
+              -X POST "$BDIST_UPLOAD_URL" \
+              -H "Authorization: Bearer $BDIST_UPLOAD_TOKEN" \
+              -F "client=$BDIST_CLIENT" \
+              -F "filename=$BDIST_FILENAME" \
+              -F "file=@build/$BDIST_FILENAME"; then
+              exit 0
+            fi
+            if [ "$attempt" -eq 5 ]; then
+              echo '::error::BDist upload failed after five attempts.'
+              exit 1
+            fi
+            sleep $((10 * 2 ** (attempt - 1)))
+          done
