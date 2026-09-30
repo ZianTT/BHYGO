@@ -39,14 +39,12 @@ jobs:
           - goos: darwin
             goarch: amd64
             runner: macos-latest
-            filename: BHYGO-macOS-Intel.zip
-            executable_filename: BHYGO-macOS-Intel-executable.zip
+            filename: BHYGO-macOS-Intel
             client: BHYGO-OSS-Mac(Intel)
           - goos: darwin
             goarch: arm64
             runner: macos-latest
-            filename: BHYGO-macOS-Apple-Silicon.zip
-            executable_filename: BHYGO-macOS-Apple-Silicon-executable.zip
+            filename: BHYGO-macOS-Apple-Silicon
             client: BHYGO-OSS-Mac
     steps:
       - name: Checkout
@@ -63,28 +61,19 @@ jobs:
           GOARCH: ${{ matrix.goarch }}
           CGO_ENABLED: '0'
           FILENAME: ${{ matrix.filename }}
-          EXECUTABLE_FILENAME: ${{ matrix.executable_filename }}
         run: |
           mkdir -p build
-          if [ "$GOOS" = darwin ]; then
-            bash scripts/package-macos.sh
-            FILENAME="$EXECUTABLE_FILENAME" bash scripts/package-macos-executable.sh
-          else
-            short_sha="$(git rev-parse --short=7 HEAD)"
-            go build -trimpath -ldflags="-s -w -X main.commit=${short_sha}" -o "build/${FILENAME}" .
+          short_sha="$(git rev-parse --short=7 HEAD)"
+          go build -trimpath -ldflags="-s -w -X main.commit=${short_sha}" -o "build/${FILENAME}" .
+          if [ "$GOOS" != windows ]; then
+            chmod 755 "build/${FILENAME}"
           fi
       - name: Upload artifact
         uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.filename }}-${{ github.sha }}
           path: build/${{ matrix.filename }}
-          if-no-files-found: error
-      - name: Upload macOS executable artifact
-        if: matrix.goos == 'darwin'
-        uses: actions/upload-artifact@v7
-        with:
-          name: ${{ matrix.executable_filename }}-${{ github.sha }}
-          path: build/${{ matrix.executable_filename }}
+          archive: false
           if-no-files-found: error
       - name: Upload to BDist
         shell: bash
