@@ -37,11 +37,11 @@ body:
     validations:
       required: false
   - type: input
-    id: version
+    id: commit
     attributes:
-      label: 问题版本
-      description: 填写版本号、发布包名称或分支。
-      placeholder: 例如 v1.2.3 / main 分支 Release
+      label: 问题 commit
+      description: 填写程序启动时显示的构建 commit，也可运行 BHYGO -version 查看。
+      placeholder: 例如 a1b2c3d
     validations:
       required: true
   - type: textarea
