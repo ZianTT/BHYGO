@@ -1,0 +1,61 @@
+name: Bug 反馈
+description: 报告 BHYGO 的错误，帮助我们复现并修复
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: 描述这个 Bug
+      description: 说明出现了什么问题。
+      placeholder: 运行到哪一步时出现了什么错误？
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: 复现步骤
+      description: 按顺序列出能再次触发问题的操作。
+      placeholder: |
+        1. 打开程序并登录
+        2. 选择……
+        3. 出现错误
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 预期操作
+      description: 说明你原本希望程序怎样运行。
+    validations:
+      required: true
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: 截图
+      description: 如有截图，可拖入此处。请先遮挡账号、令牌等敏感信息。
+    validations:
+      required: false
+  - type: input
+    id: version
+    attributes:
+      label: 问题版本
+      description: 填写版本号、发布包名称或分支。
+      placeholder: 例如 v1.2.3 / main 分支 Release
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: 日志
+      description: 粘贴相关错误和追踪 ID；提交前删除口令、Cookie、令牌等敏感信息。
+      render: text
+    validations:
+      required: false
+  - type: checkboxes
+    id: latest
+    attributes:
+      label: 我是最新版本
+      options:
+        - label: 我确认这是该分支的最新版本，且已经检查过是否有重复议题。
+          required: true
